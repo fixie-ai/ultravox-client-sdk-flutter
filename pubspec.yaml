@@ -1,0 +1,25 @@
+name: ultravox_client
+description: "Flutter client SDK for Ultravox."
+version: 0.0.1
+homepage: https://github.com/fixie-ai/ultravox-client-sdk-flutter
+topics:
+  - ultravox
+  - audio
+  - ai
+  - llms
+
+environment:
+  sdk: ^3.5.1
+  flutter: ">=1.17.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  livekit_client: ^2.2.4
+  web_socket_channel: ^3.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+

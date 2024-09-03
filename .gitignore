@@ -4,12 +4,11 @@
 .dart_tool/
 .packages
 build/
-# If you're building an application, you may want to check-in your pubspec.lock
-pubspec.lock
+# Libraries should not include pubspec.lock, per https://dart.dev/guides/libraries/private-files#pubspeclock.
+/pubspec.lock
 
 # Directory created by dartdoc
-# If you don't generate documentation locally you can remove this line.
-doc/api/
+**/doc/api/
 
 # dotenv environment variables file
 .env*
@@ -25,3 +24,23 @@ doc/api/
 
 .flutter-plugins
 .flutter-plugins-dependencies
+
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IDE related
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
