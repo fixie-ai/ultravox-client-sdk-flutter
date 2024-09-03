@@ -13,7 +13,6 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version-file: pubspec.yaml
       - name: install deps
         run: flutter pub get
       - name: format
@@ -34,7 +33,6 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version-file: pubspec.yaml
       - name: install deps
         run: flutter pub get
       - name: build
@@ -49,7 +47,6 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version-file: pubspec.yaml
       - name: install deps
         run: flutter pub get
       - name: build
@@ -64,7 +61,6 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version-file: pubspec.yaml
       - name: install deps
         run: flutter pub get
       - name: build
@@ -79,7 +75,6 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version-file: pubspec.yaml
       - name: install deps
         run: flutter pub get
       - name: build
@@ -97,7 +92,6 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version-file: pubspec.yaml
       - name: install flutter deps
         run: flutter pub get
       - name: install apt deps
@@ -119,7 +113,6 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
-          flutter-version-file: pubspec.yaml
       - name: install deps
         run: flutter pub get
       - name: build
