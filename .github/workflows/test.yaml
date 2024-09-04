@@ -1,0 +1,120 @@
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: install deps
+        run: flutter pub get
+      - name: format
+        run: dart format lib/ test/ --set-exit-if-changed
+      - name: check
+        run: flutter analyze
+      - name: test
+        run: flutter test
+
+  build-for-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '17.x'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: install deps
+        run: flutter pub get
+      - name: build
+        working-directory: ./example
+        run: flutter build apk
+
+  build-for-ios:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: install deps
+        run: flutter pub get
+      - name: build
+        working-directory: ./example
+        run: flutter build ios --release --no-codesign
+
+  build-for-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: install deps
+        run: flutter pub get
+      - name: build
+        working-directory: ./example
+        run: flutter build windows --release
+
+  build-for-macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: install deps
+        run: flutter pub get
+      - name: build
+        working-directory: ./example
+        run: flutter build macos --release
+
+  build-for-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '12.x'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: install flutter deps
+        run: flutter pub get
+      - name: install apt deps
+        run: |
+          sudo apt-get update && \
+          sudo apt-get install -y ninja-build libgtk-3-dev
+      - name: build
+        working-directory: ./example
+        run: flutter build linux
+
+  build-for-web:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '12.x'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: install deps
+        run: flutter pub get
+      - name: build
+        working-directory: ./example
+        run: flutter build web
