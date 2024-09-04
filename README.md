@@ -18,7 +18,7 @@ dependencies:
 ```
 
 ## Usage
-
+ 
 ```dart
 final session = UltravoxSession.create();
 final state = await session.joinCall(joinUrl);
