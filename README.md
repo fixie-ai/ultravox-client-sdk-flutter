@@ -1,9 +1,7 @@
 # Ultravox client SDK for Flutter
 Flutter client SDK for [Ultravox](https://ultravox.ai).
 
-<!-- TODO: Link to pub package once published.
 [![pub package](https://img.shields.io/pub/v/ultravox_client?label=ultravox_client&color=orange)](https://pub.dev/packages/ultravox_client)
--->
 
 ## Getting started
 
@@ -28,3 +26,13 @@ state.addListener(myListener);
 ```
 
 See the included example app for a more complete example. To get a `joinUrl`, you'll want to integrate your server with the [Ultravox REST API](https://fixie-ai.github.io/ultradox/).
+
+## Supported platforms
+
+The Ultravox client SDK works on all Flutter platforms: Android, iOS, web, Linux, Windows, and macOS.
+
+## Example app
+
+You can view a demo of the example app at https://fixie-ai.github.io/ultravox-client-sdk-flutter/
+
+You can use the [Ultravox REST API](https://fixie-ai.github.io/ultradox/) to get a `joinUrl`.
