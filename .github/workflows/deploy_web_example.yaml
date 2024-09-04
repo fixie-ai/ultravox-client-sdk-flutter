@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [main, mike/pub-prep]  # Temporarily run on mike/pub-prep branch too so I can test this.
+    branches: [main]
 
 jobs:
   deploy:
