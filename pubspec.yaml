@@ -8,6 +8,13 @@ topics:
   - audio
   - ai
   - llms
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  web:
+  windows:
 
 environment:
   sdk: ^3.5.1

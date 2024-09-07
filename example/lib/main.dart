@@ -40,6 +40,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   UltravoxSession? _session;
+  bool debug = false;
 
   @override
   void dispose() {
@@ -60,7 +61,8 @@ class _MyHomePageState extends State<MyHomePage> {
       return;
     }
     setState(() {
-      _session = UltravoxSession.create();
+      _session =
+          UltravoxSession.create(experimentalMessages: debug ? {"debug"} : {});
     });
     _session!.state.addListener(_onStateChange);
     await _session!.joinCall(joinUrl);
@@ -94,10 +96,24 @@ class _MyHomePageState extends State<MyHomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             textInput,
-            ElevatedButton(
-              onPressed: () => _startCall(textController.text),
-              child: const Text('Start Call'),
-            ),
+            const SizedBox(height: 20, width: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                const Text.rich(TextSpan(
+                    text: 'Debug',
+                    style: TextStyle(fontWeight: FontWeight.bold))),
+                Switch(
+                  value: debug,
+                  onChanged: (value) => setState(() => debug = value),
+                ),
+                const Spacer(),
+                ElevatedButton(
+                  onPressed: () => _startCall(textController.text),
+                  child: const Text('Start Call'),
+                ),
+              ],
+            )
           ],
         ),
       ));
@@ -128,6 +144,17 @@ class _MyHomePageState extends State<MyHomePage> {
           child: const Text('End Call'),
         ),
       );
+      if (debug) {
+        mainBodyChildren.add(const SizedBox(height: 20));
+        mainBodyChildren.add(const Text.rich(TextSpan(
+            text: 'Last Debug Message:',
+            style: TextStyle(fontWeight: FontWeight.w700))));
+
+        if (_session!.state.lastExperimentalMessage != null) {
+          mainBodyChildren.add(DebugMessageWidget(
+              message: _session!.state.lastExperimentalMessage!));
+        }
+      }
     }
     return Scaffold(
       appBar: AppBar(
@@ -169,5 +196,29 @@ class TranscriptWidget extends StatelessWidget {
       ),
       TextSpan(text: transcript.text),
     ]));
+  }
+}
+
+class DebugMessageWidget extends StatelessWidget {
+  const DebugMessageWidget({super.key, required this.message});
+
+  final Map<String, dynamic> message;
+
+  @override
+  Widget build(BuildContext context) {
+    List<InlineSpan> children = [];
+    for (final entry in message.entries) {
+      children.add(TextSpan(
+        text: '${entry.key}: ',
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ));
+      children.add(TextSpan(text: '${entry.value}\n'));
+    }
+    return RichText(
+      text: TextSpan(
+        style: Theme.of(context).textTheme.bodySmall,
+        children: children,
+      ),
+    );
   }
 }
