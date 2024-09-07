@@ -72,9 +72,11 @@ class Transcript {
 class UltravoxSessionState extends ChangeNotifier {
   final _transcripts = <Transcript>[];
   var _status = UltravoxSessionStatus.disconnected;
+  Map<String, dynamic>? _lastExperimentalMessage;
 
   UltravoxSessionStatus get status => _status;
   List<Transcript> get transcripts => List.unmodifiable(_transcripts);
+  Map<String, dynamic>? get lastExperimentalMessage => _lastExperimentalMessage;
 
   set status(UltravoxSessionStatus value) {
     _status = value;
@@ -92,18 +94,26 @@ class UltravoxSessionState extends ChangeNotifier {
     }
     notifyListeners();
   }
+
+  set lastExperimentalMessage(Map<String, dynamic>? value) {
+    _lastExperimentalMessage = value;
+    notifyListeners();
+  }
 }
 
 /// Manages a single session with Ultravox.
 class UltravoxSession {
   final _state = UltravoxSessionState();
+  final Set<String> _experimentalMessages;
   final lk.Room _room;
   final lk.EventsListener<lk.RoomEvent> _listener;
   late WebSocketChannel _wsChannel;
 
-  UltravoxSession(this._room) : _listener = _room.createListener();
+  UltravoxSession(this._room, this._experimentalMessages)
+      : _listener = _room.createListener();
 
-  UltravoxSession.create() : this(lk.Room());
+  UltravoxSession.create({Set<String>? experimentalMessages})
+      : this(lk.Room(), experimentalMessages ?? {});
 
   UltravoxSessionState get state => _state;
 
@@ -113,7 +123,15 @@ class UltravoxSession {
       throw Exception('Cannot join a new call while already in a call');
     }
     _changeStatus(UltravoxSessionStatus.connecting);
-    _wsChannel = WebSocketChannel.connect(Uri.parse(joinUrl));
+    var url = Uri.parse(joinUrl);
+    if (_experimentalMessages.isNotEmpty) {
+      final queryParameters = Map<String, String>.from(url.queryParameters)
+        ..addAll({
+          'experimentalMessages': _experimentalMessages.join(','),
+        });
+      url = url.replace(queryParameters: queryParameters);
+    }
+    _wsChannel = WebSocketChannel.connect(url);
     await _wsChannel.ready;
     _wsChannel.stream.listen((event) async {
       await _handleSocketMessage(event);
@@ -195,7 +213,9 @@ class UltravoxSession {
         }
         break;
       case 'transcript':
-        final medium = data['medium'] == 'voice' ? Medium.voice : Medium.text;
+        final medium = data['transcript']['medium'] == 'voice'
+            ? Medium.voice
+            : Medium.text;
         final transcript = Transcript(
           text: data['transcript']['text'] as String,
           isFinal: data['transcript']['final'] as bool,
@@ -231,7 +251,9 @@ class UltravoxSession {
         }
         break;
       default:
-      // ignore
+        if (_experimentalMessages.isNotEmpty) {
+          _state.lastExperimentalMessage = data as Map<String, dynamic>;
+        }
     }
   }
 }
