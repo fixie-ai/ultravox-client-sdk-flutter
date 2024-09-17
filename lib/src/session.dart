@@ -70,6 +70,7 @@ class Transcript {
 }
 
 /// A collection of [Transcript]s for an [UltravoxSession].
+///
 /// [Transcripts] is a [ChangeNotifier] that notifies listeners when
 /// transcripts are updated or new transcripts are added.
 class Transcripts extends ChangeNotifier {
@@ -91,6 +92,7 @@ class Transcripts extends ChangeNotifier {
 }
 
 /// Manages a single session with Ultravox.
+///
 /// In addition to providing methods to manage a call, [UltravoxSession] exposes
 /// several notifiers that allow UI elements to listen for specific state
 /// changes.
