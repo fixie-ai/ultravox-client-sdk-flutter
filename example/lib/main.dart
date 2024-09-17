@@ -40,7 +40,8 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   UltravoxSession? _session;
-  bool debug = false;
+  bool _debug = false;
+  bool _connected = false;
 
   @override
   void dispose() {
@@ -52,8 +53,12 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _onStatusChange() {
-    // Refresh the UI when the session status changes.
-    setState(() {});
+    if (_session?.status.live != _connected) {
+      // Refresh the UI when we connect and disconnect.
+      setState(() {
+        _connected = _session?.status.live ?? false;
+      });
+    }
   }
 
   Future<void> _startCall(String joinUrl) async {
@@ -62,7 +67,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     setState(() {
       _session =
-          UltravoxSession.create(experimentalMessages: debug ? {"debug"} : {});
+          UltravoxSession.create(experimentalMessages: _debug ? {"debug"} : {});
     });
     _session!.statusNotifier.addListener(_onStatusChange);
     await _session!.joinCall(joinUrl);
@@ -104,8 +109,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     text: 'Debug',
                     style: TextStyle(fontWeight: FontWeight.bold))),
                 Switch(
-                  value: debug,
-                  onChanged: (value) => setState(() => debug = value),
+                  value: _debug,
+                  onChanged: (value) => setState(() => _debug = value),
                 ),
                 const Spacer(),
                 ElevatedButton(
@@ -117,7 +122,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ));
-    } else if (!_session!.status.live) {
+    } else if (!_connected) {
       mainBodyChildren.add(const Center(
           child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -147,7 +152,7 @@ class _MyHomePageState extends State<MyHomePage> {
           child: const Text('End Call'),
         ),
       );
-      if (debug) {
+      if (_debug) {
         mainBodyChildren.add(const SizedBox(height: 20));
         mainBodyChildren.add(const Text.rich(TextSpan(
             text: 'Last Debug Message:',
