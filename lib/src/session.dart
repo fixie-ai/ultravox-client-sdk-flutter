@@ -6,6 +6,7 @@ import 'dart:convert';
 /// The current status of an [UltravoxSession].
 enum UltravoxSessionStatus {
   /// The voice session is not connected and not attempting to connect.
+  ///
   /// This is the initial state of a voice session.
   disconnected(live: false),
 
@@ -22,10 +23,12 @@ enum UltravoxSessionStatus {
   listening(live: true),
 
   /// The client is connected and the server is considering its response.
+  ///
   /// The user can still interrupt.
   thinking(live: true),
 
   /// The client is connected and the server is playing response audio.
+  ///
   /// The user can interrupt as needed.
   speaking(live: true);
 
@@ -66,24 +69,16 @@ class Transcript {
   });
 }
 
-/// A state object for an [UltravoxSession].
-/// [UltravoxSessionState] is a [ChangeNotifier] that manages the state of a
-/// single session and notifies listeners when the state changes.
-class UltravoxSessionState extends ChangeNotifier {
+/// A collection of [Transcript]s for an [UltravoxSession].
+///
+/// [Transcripts] is a [ChangeNotifier] that notifies listeners when
+/// transcripts are updated or new transcripts are added.
+class Transcripts extends ChangeNotifier {
   final _transcripts = <Transcript>[];
-  var _status = UltravoxSessionStatus.disconnected;
-  Map<String, dynamic>? _lastExperimentalMessage;
 
-  UltravoxSessionStatus get status => _status;
   List<Transcript> get transcripts => List.unmodifiable(_transcripts);
-  Map<String, dynamic>? get lastExperimentalMessage => _lastExperimentalMessage;
 
-  set status(UltravoxSessionStatus value) {
-    _status = value;
-    notifyListeners();
-  }
-
-  void addOrUpdateTranscript(Transcript transcript) {
+  void _addOrUpdateTranscript(Transcript transcript) {
     if (_transcripts.isNotEmpty &&
         !_transcripts.last.isFinal &&
         _transcripts.last.speaker == transcript.speaker) {
@@ -94,16 +89,63 @@ class UltravoxSessionState extends ChangeNotifier {
     }
     notifyListeners();
   }
-
-  set lastExperimentalMessage(Map<String, dynamic>? value) {
-    _lastExperimentalMessage = value;
-    notifyListeners();
-  }
 }
 
 /// Manages a single session with Ultravox.
+///
+/// In addition to providing methods to manage a call, [UltravoxSession] exposes
+/// several notifiers that allow UI elements to listen for specific state
+/// changes.
 class UltravoxSession {
-  final _state = UltravoxSessionState();
+  /// A [ValueNotifier] that emits events when the session status changes.
+  final statusNotifier = ValueNotifier<UltravoxSessionStatus>(
+    UltravoxSessionStatus.disconnected,
+  );
+
+  /// A quick accessor for the session's current status.
+  ///
+  /// Listen to [statusNotifier] to receive updates when this changes.
+  UltravoxSessionStatus get status => statusNotifier.value;
+
+  /// A [ChangeNotifier] that emits events when new transcripts are available.
+  final transcriptsNotifier = Transcripts();
+
+  /// A quick accessor for the session's current transcripts.
+  ///
+  /// Listen to [transcriptsNotifier] to receive updates on transcript changes.
+  List<Transcript> get transcripts => transcriptsNotifier.transcripts;
+
+  /// A [ValueNotifier] that emits events when new experimental messages are
+  /// received.
+  ///
+  /// Experimental messages are messages that are not part of the released
+  /// Ultravox API but may be selected for testing new features or debugging.
+  /// The messages received depend on the `experimentalMessages` provided to
+  /// [UltravoxSession.create].
+  final experimentalMessageNotifier = ValueNotifier<Map<String, dynamic>>({});
+
+  /// A quick accessor for the last experimental message received.
+  ///
+  /// Listen to [experimentalMessageNotifier] to receive updates.
+  Map<String, dynamic> get lastExperimentalMessage =>
+      experimentalMessageNotifier.value;
+
+  /// A [ValueNotifier] that emits events when the user is muted or unmuted.
+  final userMutedNotifier = ValueNotifier<bool>(false);
+
+  /// A quick accessor for the user's current mute status.
+  ///
+  /// Listen to [userMutedNotifier] to receive updates.
+  bool get userMuted => userMutedNotifier.value;
+
+  /// A [ValueNotifier] that emits events when the agent is muted or unmuted.
+  final agentMutedNotifier = ValueNotifier<bool>(false);
+
+  /// A quick accessor for the agent's current mute status.
+  ///
+  /// Listen to [agentMutedNotifier] to receive updates.
+  bool get agentMuted => agentMutedNotifier.value;
+
   final Set<String> _experimentalMessages;
   final lk.Room _room;
   final lk.EventsListener<lk.RoomEvent> _listener;
@@ -115,14 +157,12 @@ class UltravoxSession {
   UltravoxSession.create({Set<String>? experimentalMessages})
       : this(lk.Room(), experimentalMessages ?? {});
 
-  UltravoxSessionState get state => _state;
-
-  /// Connects to call using the given [joinUrl].
-  Future<UltravoxSessionState> joinCall(String joinUrl) async {
-    if (_state.status != UltravoxSessionStatus.disconnected) {
+  /// Connects to a call using the given [joinUrl].
+  Future<void> joinCall(String joinUrl) async {
+    if (status != UltravoxSessionStatus.disconnected) {
       throw Exception('Cannot join a new call while already in a call');
     }
-    _changeStatus(UltravoxSessionStatus.connecting);
+    statusNotifier.value = UltravoxSessionStatus.connecting;
     var url = Uri.parse(joinUrl);
     if (_experimentalMessages.isNotEmpty) {
       final queryParameters = Map<String, String>.from(url.queryParameters)
@@ -136,7 +176,52 @@ class UltravoxSession {
     _wsChannel.stream.listen((event) async {
       await _handleSocketMessage(event);
     });
-    return _state;
+  }
+
+  /// Mutes the user, the agent, or both.
+  ///
+  /// If a given [Role] is already muted, this method does nothing for that
+  /// role.
+  void mute(Set<Role> roles) {
+    if (roles.contains(Role.user)) {
+      if (!userMuted) {
+        _room.localParticipant?.setMicrophoneEnabled(false);
+      }
+      userMutedNotifier.value = true;
+    }
+    if (roles.contains(Role.agent)) {
+      if (!agentMuted) {
+        for (final participant in _room.remoteParticipants.values) {
+          for (final publication in participant.audioTrackPublications) {
+            publication.track?.disable();
+          }
+        }
+      }
+      agentMutedNotifier.value = true;
+    }
+  }
+
+  /// Unmutes the user, the agent, or both.
+  ///
+  /// If a given [Role] is not currently muted, this method does nothing for
+  /// that role.
+  void unmute(Set<Role> roles) {
+    if (roles.contains(Role.user)) {
+      if (userMuted) {
+        _room.localParticipant?.setMicrophoneEnabled(true);
+      }
+      userMutedNotifier.value = false;
+    }
+    if (roles.contains(Role.agent)) {
+      if (agentMuted) {
+        for (final participant in _room.remoteParticipants.values) {
+          for (final publication in participant.audioTrackPublications) {
+            publication.track?.enable();
+          }
+        }
+      }
+      agentMutedNotifier.value = false;
+    }
   }
 
   /// Leaves the current call (if any).
@@ -146,28 +231,24 @@ class UltravoxSession {
 
   /// Sends a message via text. The agent will also respond via text.
   Future<void> sendText(String text) async {
-    if (!_state.status.live) {
+    if (!status.live) {
       throw Exception(
-          'Cannot send text while not connected. Current status: ${_state.status}');
+          'Cannot send text while not connected. Current status: $status');
     }
     final message = jsonEncode({'type': 'input_text_message', 'text': text});
     _room.localParticipant?.publishData(utf8.encode(message), reliable: true);
   }
 
-  void _changeStatus(UltravoxSessionStatus status) {
-    _state.status = status;
-  }
-
   Future<void> _disconnect() async {
-    if (_state.status == UltravoxSessionStatus.disconnected) {
+    if (status == UltravoxSessionStatus.disconnected) {
       return;
     }
-    _changeStatus(UltravoxSessionStatus.disconnecting);
+    statusNotifier.value = UltravoxSessionStatus.disconnecting;
     await Future.wait([
       _room.disconnect(),
       _wsChannel.sink.close(),
     ]);
-    _changeStatus(UltravoxSessionStatus.disconnected);
+    statusNotifier.value = UltravoxSessionStatus.disconnected;
   }
 
   Future<void> _handleSocketMessage(dynamic event) async {
@@ -183,7 +264,7 @@ class UltravoxSession {
         _listener
           ..on<lk.TrackSubscribedEvent>(_handleTrackSubscribed)
           ..on<lk.DataReceivedEvent>(_handleDataMessage);
-        _changeStatus(UltravoxSessionStatus.idle);
+        statusNotifier.value = UltravoxSessionStatus.idle;
         break;
       default:
       // ignore
@@ -200,13 +281,13 @@ class UltravoxSession {
       case 'state':
         switch (data['state']) {
           case 'listening':
-            _changeStatus(UltravoxSessionStatus.listening);
+            statusNotifier.value = UltravoxSessionStatus.listening;
             break;
           case 'thinking':
-            _changeStatus(UltravoxSessionStatus.thinking);
+            statusNotifier.value = UltravoxSessionStatus.thinking;
             break;
           case 'speaking':
-            _changeStatus(UltravoxSessionStatus.speaking);
+            statusNotifier.value = UltravoxSessionStatus.speaking;
             break;
           default:
           // ignore
@@ -222,7 +303,7 @@ class UltravoxSession {
           speaker: Role.user,
           medium: medium,
         );
-        _state.addOrUpdateTranscript(transcript);
+        transcriptsNotifier._addOrUpdateTranscript(transcript);
         break;
       case 'voice_synced_transcript':
       case 'agent_text_transcript':
@@ -236,23 +317,23 @@ class UltravoxSession {
             speaker: Role.agent,
             medium: medium,
           );
-          _state.addOrUpdateTranscript(transcript);
+          transcriptsNotifier._addOrUpdateTranscript(transcript);
         } else if (data['delta'] != null) {
-          final last = _state.transcripts.last;
-          if (last.speaker == Role.agent) {
+          final last = transcriptsNotifier._transcripts.lastOrNull;
+          if (last?.speaker == Role.agent) {
             final transcript = Transcript(
-              text: last.text + (data['delta'] as String),
+              text: last!.text + (data['delta'] as String),
               isFinal: data['final'] as bool,
               speaker: Role.agent,
               medium: medium,
             );
-            _state.addOrUpdateTranscript(transcript);
+            transcriptsNotifier._addOrUpdateTranscript(transcript);
           }
         }
         break;
       default:
         if (_experimentalMessages.isNotEmpty) {
-          _state.lastExperimentalMessage = data as Map<String, dynamic>;
+          experimentalMessageNotifier.value = data as Map<String, dynamic>;
         }
     }
   }

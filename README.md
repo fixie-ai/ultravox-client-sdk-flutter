@@ -21,8 +21,9 @@ dependencies:
 
 ```dart
 final session = UltravoxSession.create();
-final state = await session.joinCall(joinUrl);
-state.addListener(myListener);
+await session.joinCall(joinUrl);
+session.statusNotifier.addListener(myListener);
+await session.leaveCall();
 ```
 
 See the included example app for a more complete example. To get a `joinUrl`, you'll want to integrate your server with the [Ultravox REST API](https://fixie-ai.github.io/ultradox/).

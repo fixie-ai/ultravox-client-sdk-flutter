@@ -3,53 +3,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ultravox_client/ultravox_client.dart';
 
 void main() {
-  test('update transcript', () {
-    final state = UltravoxSessionState();
-    final transcript1 = Transcript(
-      text: 'Hello',
-      isFinal: false,
-      speaker: Role.user,
-      medium: Medium.voice,
-    );
-    final transcript2 = Transcript(
-      text: 'Hello world!',
-      isFinal: true,
-      speaker: Role.user,
-      medium: Medium.voice,
-    );
-    state.addOrUpdateTranscript(transcript1);
-
-    var fired = false;
-    state.addListener(() {
-      fired = true;
-      expect(state.transcripts, [transcript2]);
+  test('mute', () {
+    final session = UltravoxSession.create();
+    int muteCounter = 0;
+    session.userMutedNotifier.addListener(() {
+      muteCounter++;
     });
-    state.addOrUpdateTranscript(transcript2);
-    expect(fired, true);
-  });
-
-  test('add transcript', () {
-    final state = UltravoxSessionState();
-    final transcript1 = Transcript(
-      text: 'Hello world!',
-      isFinal: true,
-      speaker: Role.user,
-      medium: Medium.voice,
-    );
-    final transcript2 = Transcript(
-      text: 'Something else',
-      isFinal: false,
-      speaker: Role.user,
-      medium: Medium.voice,
-    );
-    state.addOrUpdateTranscript(transcript1);
-
-    var fired = false;
-    state.addListener(() {
-      fired = true;
-      expect(state.transcripts, [transcript1, transcript2]);
-    });
-    state.addOrUpdateTranscript(transcript2);
-    expect(fired, true);
+    session.mute({Role.user});
+    expect(muteCounter, 1);
+    session.mute({Role.user});
+    expect(muteCounter, 1);
+    session.unmute({Role.user});
+    expect(muteCounter, 2);
+    session.mute({Role.user, Role.agent});
+    expect(muteCounter, 3);
+    session.unmute({});
+    expect(muteCounter, 3);
+    session.unmute({Role.agent});
+    expect(muteCounter, 3);
   });
 }

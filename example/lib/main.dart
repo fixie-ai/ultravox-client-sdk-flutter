@@ -40,20 +40,25 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   UltravoxSession? _session;
-  bool debug = false;
+  bool _debug = false;
+  bool _connected = false;
 
   @override
   void dispose() {
     if (_session != null) {
-      _session!.state.removeListener(_onStateChange);
+      _session!.statusNotifier.removeListener(_onStatusChange);
       unawaited(_session!.leaveCall());
     }
     super.dispose();
   }
 
-  void _onStateChange() {
-    // Refresh the UI when the session state changes.
-    setState(() {});
+  void _onStatusChange() {
+    if (_session?.status.live != _connected) {
+      // Refresh the UI when we connect and disconnect.
+      setState(() {
+        _connected = _session?.status.live ?? false;
+      });
+    }
   }
 
   Future<void> _startCall(String joinUrl) async {
@@ -62,9 +67,9 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     setState(() {
       _session =
-          UltravoxSession.create(experimentalMessages: debug ? {"debug"} : {});
+          UltravoxSession.create(experimentalMessages: _debug ? {"debug"} : {});
     });
-    _session!.state.addListener(_onStateChange);
+    _session!.statusNotifier.addListener(_onStatusChange);
     await _session!.joinCall(joinUrl);
   }
 
@@ -72,7 +77,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (_session == null) {
       return;
     }
-    _session!.state.removeListener(_onStateChange);
+    _session!.statusNotifier.removeListener(_onStatusChange);
     await _session!.leaveCall();
     setState(() {
       _session = null;
@@ -104,20 +109,21 @@ class _MyHomePageState extends State<MyHomePage> {
                     text: 'Debug',
                     style: TextStyle(fontWeight: FontWeight.bold))),
                 Switch(
-                  value: debug,
-                  onChanged: (value) => setState(() => debug = value),
+                  value: _debug,
+                  onChanged: (value) => setState(() => _debug = value),
                 ),
                 const Spacer(),
-                ElevatedButton(
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.call),
                   onPressed: () => _startCall(textController.text),
-                  child: const Text('Start Call'),
+                  label: const Text('Start Call'),
                 ),
               ],
             )
           ],
         ),
       ));
-    } else if (!_session!.state.status.live) {
+    } else if (!_connected) {
       mainBodyChildren.add(const Center(
           child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -129,31 +135,105 @@ class _MyHomePageState extends State<MyHomePage> {
     } else {
       mainBodyChildren.add(
         Container(
-          constraints: const BoxConstraints(maxHeight: 200),
-          child: ListView(
-              reverse: true, // Fill from bottom, clip at top.
-              children: [
-                for (final transcript in _session!.state.transcripts.reversed)
-                  TranscriptWidget(transcript: transcript),
-              ]),
-        ),
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListenableBuilder(
+                listenable: _session!.transcriptsNotifier,
+                builder: (BuildContext context, Widget? child) {
+                  return ListView(
+                      reverse: true, // Fill from bottom, clip at top.
+                      children: [
+                        for (final transcript in _session!.transcripts.reversed)
+                          TranscriptWidget(transcript: transcript),
+                      ]);
+                })),
       );
-      mainBodyChildren.add(
-        ElevatedButton(
-          onPressed: _endCall,
-          child: const Text('End Call'),
+      final textController = TextEditingController();
+      final textInput = TextField(
+        decoration: const InputDecoration(
+          border: OutlineInputBorder(),
         ),
+        controller: textController,
       );
-      if (debug) {
+      mainBodyChildren.add(Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          Expanded(child: textInput),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.send),
+            onPressed: () {
+              _session!.sendText(textController.text);
+              textController.clear();
+            },
+            label: const Text('Send'),
+          ),
+        ],
+      ));
+      mainBodyChildren.add(const SizedBox(height: 20));
+      mainBodyChildren.add(Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          ListenableBuilder(
+              listenable: _session!.userMutedNotifier,
+              builder: (BuildContext context, Widget? child) {
+                return ElevatedButton.icon(
+                  icon: _session!.userMuted
+                      ? const Icon(Icons.mic_off)
+                      : const Icon(Icons.mic),
+                  onPressed: () {
+                    if (_session!.userMuted) {
+                      _session!.unmute({Role.user});
+                    } else {
+                      _session!.mute({Role.user});
+                    }
+                  },
+                  label: _session!.userMuted
+                      ? const Text('Unmute')
+                      : const Text('Mute'),
+                );
+              }),
+          ListenableBuilder(
+              listenable: _session!.agentMutedNotifier,
+              builder: (BuildContext context, Widget? child) {
+                return ElevatedButton.icon(
+                  icon: _session!.agentMuted
+                      ? const Icon(Icons.volume_off)
+                      : const Icon(Icons.volume_up),
+                  onPressed: () {
+                    if (_session!.agentMuted) {
+                      _session!.unmute({Role.agent});
+                    } else {
+                      _session!.mute({Role.agent});
+                    }
+                  },
+                  label: _session!.agentMuted
+                      ? const Text('Unmute Agent')
+                      : const Text('Mute Agent'),
+                );
+              }),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.call_end),
+            onPressed: _endCall,
+            label: const Text('End Call'),
+          ),
+        ],
+      ));
+      if (_debug) {
         mainBodyChildren.add(const SizedBox(height: 20));
         mainBodyChildren.add(const Text.rich(TextSpan(
             text: 'Last Debug Message:',
             style: TextStyle(fontWeight: FontWeight.w700))));
 
-        if (_session!.state.lastExperimentalMessage != null) {
-          mainBodyChildren.add(DebugMessageWidget(
-              message: _session!.state.lastExperimentalMessage!));
-        }
+        mainBodyChildren.add(ListenableBuilder(
+          listenable: _session!.experimentalMessageNotifier,
+          builder: (BuildContext context, Widget? child) {
+            final message = _session!.lastExperimentalMessage;
+            if (message.containsKey("type") && message["type"] == "debug") {
+              return DebugMessageWidget(message: message);
+            } else {
+              return const SizedBox(height: 20);
+            }
+          },
+        ));
       }
     }
     return Scaffold(
