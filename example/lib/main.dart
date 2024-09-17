@@ -45,14 +45,14 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void dispose() {
     if (_session != null) {
-      _session!.state.removeListener(_onStateChange);
+      _session!.statusNotifier.removeListener(_onStatusChange);
       unawaited(_session!.leaveCall());
     }
     super.dispose();
   }
 
-  void _onStateChange() {
-    // Refresh the UI when the session state changes.
+  void _onStatusChange() {
+    // Refresh the UI when the session status changes.
     setState(() {});
   }
 
@@ -64,7 +64,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _session =
           UltravoxSession.create(experimentalMessages: debug ? {"debug"} : {});
     });
-    _session!.state.addListener(_onStateChange);
+    _session!.statusNotifier.addListener(_onStatusChange);
     await _session!.joinCall(joinUrl);
   }
 
@@ -72,7 +72,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (_session == null) {
       return;
     }
-    _session!.state.removeListener(_onStateChange);
+    _session!.statusNotifier.removeListener(_onStatusChange);
     await _session!.leaveCall();
     setState(() {
       _session = null;
@@ -117,7 +117,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ));
-    } else if (!_session!.state.status.live) {
+    } else if (!_session!.status.live) {
       mainBodyChildren.add(const Center(
           child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -129,14 +129,17 @@ class _MyHomePageState extends State<MyHomePage> {
     } else {
       mainBodyChildren.add(
         Container(
-          constraints: const BoxConstraints(maxHeight: 200),
-          child: ListView(
-              reverse: true, // Fill from bottom, clip at top.
-              children: [
-                for (final transcript in _session!.state.transcripts.reversed)
-                  TranscriptWidget(transcript: transcript),
-              ]),
-        ),
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListenableBuilder(
+                listenable: _session!.transcriptsNotifier,
+                builder: (BuildContext context, Widget? child) {
+                  return ListView(
+                      reverse: true, // Fill from bottom, clip at top.
+                      children: [
+                        for (final transcript in _session!.transcripts.reversed)
+                          TranscriptWidget(transcript: transcript),
+                      ]);
+                })),
       );
       mainBodyChildren.add(
         ElevatedButton(
@@ -150,10 +153,17 @@ class _MyHomePageState extends State<MyHomePage> {
             text: 'Last Debug Message:',
             style: TextStyle(fontWeight: FontWeight.w700))));
 
-        if (_session!.state.lastExperimentalMessage != null) {
-          mainBodyChildren.add(DebugMessageWidget(
-              message: _session!.state.lastExperimentalMessage!));
-        }
+        mainBodyChildren.add(ListenableBuilder(
+          listenable: _session!.experimentalMessageNotifier,
+          builder: (BuildContext context, Widget? child) {
+            final message = _session!.lastExperimentalMessage;
+            if (message.containsKey("type") && message["type"] == "debug") {
+              return DebugMessageWidget(message: message);
+            } else {
+              return const SizedBox(height: 20);
+            }
+          },
+        ));
       }
     }
     return Scaffold(
