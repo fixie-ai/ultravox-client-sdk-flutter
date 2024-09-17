@@ -113,9 +113,10 @@ class _MyHomePageState extends State<MyHomePage> {
                   onChanged: (value) => setState(() => _debug = value),
                 ),
                 const Spacer(),
-                ElevatedButton(
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.call),
                   onPressed: () => _startCall(textController.text),
-                  child: const Text('Start Call'),
+                  label: const Text('Start Call'),
                 ),
               ],
             )
@@ -146,12 +147,76 @@ class _MyHomePageState extends State<MyHomePage> {
                       ]);
                 })),
       );
-      mainBodyChildren.add(
-        ElevatedButton(
-          onPressed: _endCall,
-          child: const Text('End Call'),
+      final textController = TextEditingController();
+      final textInput = TextField(
+        decoration: const InputDecoration(
+          border: OutlineInputBorder(),
         ),
+        controller: textController,
       );
+      mainBodyChildren.add(Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          Expanded(child: textInput),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.send),
+            onPressed: () {
+              _session!.sendText(textController.text);
+              textController.clear();
+            },
+            label: const Text('Send'),
+          ),
+        ],
+      ));
+      mainBodyChildren.add(const SizedBox(height: 20));
+      mainBodyChildren.add(Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        children: [
+          ListenableBuilder(
+              listenable: _session!.userMutedNotifier,
+              builder: (BuildContext context, Widget? child) {
+                return ElevatedButton.icon(
+                  icon: _session!.userMuted
+                      ? const Icon(Icons.mic_off)
+                      : const Icon(Icons.mic),
+                  onPressed: () {
+                    if (_session!.userMuted) {
+                      _session!.unmute({Role.user});
+                    } else {
+                      _session!.mute({Role.user});
+                    }
+                  },
+                  label: _session!.userMuted
+                      ? const Text('Unmute')
+                      : const Text('Mute'),
+                );
+              }),
+          ListenableBuilder(
+              listenable: _session!.agentMutedNotifier,
+              builder: (BuildContext context, Widget? child) {
+                return ElevatedButton.icon(
+                  icon: _session!.agentMuted
+                      ? const Icon(Icons.volume_off)
+                      : const Icon(Icons.volume_up),
+                  onPressed: () {
+                    if (_session!.agentMuted) {
+                      _session!.unmute({Role.agent});
+                    } else {
+                      _session!.mute({Role.agent});
+                    }
+                  },
+                  label: _session!.agentMuted
+                      ? const Text('Unmute Agent')
+                      : const Text('Mute Agent'),
+                );
+              }),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.call_end),
+            onPressed: _endCall,
+            label: const Text('End Call'),
+          ),
+        ],
+      ));
       if (_debug) {
         mainBodyChildren.add(const SizedBox(height: 20));
         mainBodyChildren.add(const Text.rich(TextSpan(

@@ -128,6 +128,22 @@ class UltravoxSession {
   Map<String, dynamic> get lastExperimentalMessage =>
       experimentalMessageNotifier.value;
 
+  /// A [ValueNotifier] that emits events when the user is muted or unmuted.
+  final userMutedNotifier = ValueNotifier<bool>(false);
+
+  /// A quick accessor for the user's current mute status.
+  ///
+  /// Listen to [userMutedNotifier] to receive updates.
+  bool get userMuted => userMutedNotifier.value;
+
+  /// A [ValueNotifier] that emits events when the agent is muted or unmuted.
+  final agentMutedNotifier = ValueNotifier<bool>(false);
+
+  /// A quick accessor for the agent's current mute status.
+  ///
+  /// Listen to [agentMutedNotifier] to receive updates.
+  bool get agentMuted => agentMutedNotifier.value;
+
   final Set<String> _experimentalMessages;
   final lk.Room _room;
   final lk.EventsListener<lk.RoomEvent> _listener;
@@ -158,6 +174,52 @@ class UltravoxSession {
     _wsChannel.stream.listen((event) async {
       await _handleSocketMessage(event);
     });
+  }
+
+  /// Mutes the user, the agent, or both.
+  ///
+  /// If a given [Role] is already muted, this method does nothing for that
+  /// role.
+  void mute(Set<Role> roles) {
+    if (roles.contains(Role.user)) {
+      if (!userMuted) {
+        _room.localParticipant?.setMicrophoneEnabled(false);
+      }
+      userMutedNotifier.value = true;
+    }
+    if (roles.contains(Role.agent)) {
+      if (!agentMuted) {
+        for (final participant in _room.remoteParticipants.values) {
+          for (final publication in participant.audioTrackPublications) {
+            publication.track?.disable();
+          }
+        }
+      }
+      agentMutedNotifier.value = true;
+    }
+  }
+
+  /// Unmutes the user, the agent, or both.
+  ///
+  /// If a given [Role] is not currently muted, this method does nothing for
+  /// that role.
+  void unmute(Set<Role> roles) {
+    if (roles.contains(Role.user)) {
+      if (userMuted) {
+        _room.localParticipant?.setMicrophoneEnabled(true);
+      }
+      userMutedNotifier.value = false;
+    }
+    if (roles.contains(Role.agent)) {
+      if (agentMuted) {
+        for (final participant in _room.remoteParticipants.values) {
+          for (final publication in participant.audioTrackPublications) {
+            publication.track?.enable();
+          }
+        }
+      }
+      agentMutedNotifier.value = false;
+    }
   }
 
   /// Leaves the current call (if any).
