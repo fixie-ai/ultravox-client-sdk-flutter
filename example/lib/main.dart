@@ -173,39 +173,39 @@ class _MyHomePageState extends State<MyHomePage> {
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           ListenableBuilder(
-              listenable: _session!.userMutedNotifier,
+              listenable: _session!.micMutedNotifier,
               builder: (BuildContext context, Widget? child) {
                 return ElevatedButton.icon(
-                  icon: _session!.userMuted
+                  icon: _session!.isMicMuted
                       ? const Icon(Icons.mic_off)
                       : const Icon(Icons.mic),
                   onPressed: () {
-                    if (_session!.userMuted) {
-                      _session!.unmute({Role.user});
+                    if (_session!.isMicMuted) {
+                      _session!.unmuteMic();
                     } else {
-                      _session!.mute({Role.user});
+                      _session!.muteMic();
                     }
                   },
-                  label: _session!.userMuted
+                  label: _session!.isMicMuted
                       ? const Text('Unmute')
                       : const Text('Mute'),
                 );
               }),
           ListenableBuilder(
-              listenable: _session!.agentMutedNotifier,
+              listenable: _session!.speakerMutedNotifier,
               builder: (BuildContext context, Widget? child) {
                 return ElevatedButton.icon(
-                  icon: _session!.agentMuted
+                  icon: _session!.isSpeakerMuted
                       ? const Icon(Icons.volume_off)
                       : const Icon(Icons.volume_up),
                   onPressed: () {
-                    if (_session!.agentMuted) {
-                      _session!.unmute({Role.agent});
+                    if (_session!.isSpeakerMuted) {
+                      _session!.unmuteSpeaker();
                     } else {
-                      _session!.mute({Role.agent});
+                      _session!.muteSpeaker();
                     }
                   },
-                  label: _session!.agentMuted
+                  label: _session!.isSpeakerMuted
                       ? const Text('Unmute Agent')
                       : const Text('Mute Agent'),
                 );
