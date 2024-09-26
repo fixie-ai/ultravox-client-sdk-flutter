@@ -130,21 +130,21 @@ class UltravoxSession {
   Map<String, dynamic> get lastExperimentalMessage =>
       experimentalMessageNotifier.value;
 
-  /// A [ValueNotifier] that emits events when the user's mic is muted or unmuted.
-  final ValueNotifier<bool> micMutedNotifier = ValueNotifier<bool>(false);
+  /// A [ValueNotifier] that emits events when the user is muted or unmuted.
+  final userMutedNotifier = ValueNotifier<bool>(false);
 
-  /// A [ValueNotifier] that emits events when the "speaker" (the agent) is muted or unmuted.
-  final ValueNotifier<bool> speakerMutedNotifier = ValueNotifier<bool>(false);
-
-  /// Getter for the user's mic mute status.
+  /// A quick accessor for the user's current mute status.
   ///
-  /// Listen to [micMutedNotifier] to receive updates.
-  bool get isMicMuted => micMutedNotifier.value;
+  /// Listen to [userMutedNotifier] to receive updates.
+  bool get userMuted => userMutedNotifier.value;
 
-  /// Getter for the user's "speaker" (the agent) mute status.
+  /// A [ValueNotifier] that emits events when the agent is muted or unmuted.
+  final agentMutedNotifier = ValueNotifier<bool>(false);
+
+  /// A quick accessor for the agent's current mute status.
   ///
-  /// Listen to [speakerMutedNotifier] to receive updates.
-  bool get isSpeakerMuted => speakerMutedNotifier.value;
+  /// Listen to [agentMutedNotifier] to receive updates.
+  bool get agentMuted => agentMutedNotifier.value;
 
   final Set<String> _experimentalMessages;
   final lk.Room _room;
@@ -178,43 +178,49 @@ class UltravoxSession {
     });
   }
 
-  /// Mutes the user's microphone.
-  void muteMic() {
-    if (!isMicMuted) {
-      _room.localParticipant?.setMicrophoneEnabled(false);
-      micMutedNotifier.value = true;
+  /// Mutes the user, the agent, or both.
+  ///
+  /// If a given [Role] is already muted, this method does nothing for that
+  /// role.
+  void mute(Set<Role> roles) {
+    if (roles.contains(Role.user)) {
+      if (!userMuted) {
+        _room.localParticipant?.setMicrophoneEnabled(false);
+      }
+      userMutedNotifier.value = true;
     }
-  }
-
-  /// Unmutes the user's microphone.
-  void unmuteMic() {
-    if (isMicMuted) {
-      _room.localParticipant?.setMicrophoneEnabled(true);
-      micMutedNotifier.value = false;
-    }
-  }
-
-  /// Mutes the user's "speaker" (the agent).
-  void muteSpeaker() {
-    if (!isSpeakerMuted) {
-      for (final participant in _room.remoteParticipants.values) {
-        for (final publication in participant.audioTrackPublications) {
-          publication.track?.disable();
+    if (roles.contains(Role.agent)) {
+      if (!agentMuted) {
+        for (final participant in _room.remoteParticipants.values) {
+          for (final publication in participant.audioTrackPublications) {
+            publication.track?.disable();
+          }
         }
       }
-      speakerMutedNotifier.value = true;
+      agentMutedNotifier.value = true;
     }
   }
 
-  /// Unmutes the user's "speaker" (the agent).
-  void unmuteSpeaker() {
-    if (isSpeakerMuted) {
-      for (final participant in _room.remoteParticipants.values) {
-        for (final publication in participant.audioTrackPublications) {
-          publication.track?.enable();
+  /// Unmutes the user, the agent, or both.
+  ///
+  /// If a given [Role] is not currently muted, this method does nothing for
+  /// that role.
+  void unmute(Set<Role> roles) {
+    if (roles.contains(Role.user)) {
+      if (userMuted) {
+        _room.localParticipant?.setMicrophoneEnabled(true);
+      }
+      userMutedNotifier.value = false;
+    }
+    if (roles.contains(Role.agent)) {
+      if (agentMuted) {
+        for (final participant in _room.remoteParticipants.values) {
+          for (final publication in participant.audioTrackPublications) {
+            publication.track?.enable();
+          }
         }
       }
-      speakerMutedNotifier.value = false;
+      agentMutedNotifier.value = false;
     }
   }
 

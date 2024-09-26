@@ -3,23 +3,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ultravox_client/ultravox_client.dart';
 
 void main() {
-  test('muteMic', () {
+  test('mute', () {
     final session = UltravoxSession.create();
     int muteCounter = 0;
-    session.micMutedNotifier.addListener(() {
+    session.userMutedNotifier.addListener(() {
       muteCounter++;
     });
-    session.muteMic();
+    session.mute({Role.user});
     expect(muteCounter, 1);
-    session.muteMic();
+    session.mute({Role.user});
     expect(muteCounter, 1);
-    session.unmuteMic();
+    session.unmute({Role.user});
     expect(muteCounter, 2);
-    session.muteMic();
+    session.mute({Role.user, Role.agent});
     expect(muteCounter, 3);
-    session.unmuteMic();
-    expect(muteCounter, 4);
-    session.unmuteMic();
-    expect(muteCounter, 5);
+    session.unmute({});
+    expect(muteCounter, 3);
+    session.unmute({Role.agent});
+    expect(muteCounter, 3);
   });
 }
