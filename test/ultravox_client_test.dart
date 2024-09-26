@@ -16,12 +16,12 @@ void main() {
       });
 
       expect(session.micMuted, false);
-      
+
       session.micMuted = true;
       expect(session.micMuted, true);
       expect(micMuteCounter, 1);
 
-      session.micMuted = true;  // Should not trigger listener
+      session.micMuted = true; // Should not trigger listener
       expect(micMuteCounter, 1);
 
       session.micMuted = false;
@@ -36,12 +36,12 @@ void main() {
       });
 
       expect(session.speakerMuted, false);
-      
+
       session.speakerMuted = true;
       expect(session.speakerMuted, true);
       expect(speakerMuteCounter, 1);
 
-      session.speakerMuted = true;  // Should not trigger listener
+      session.speakerMuted = true; // Should not trigger listener
       expect(speakerMuteCounter, 1);
 
       session.speakerMuted = false;
@@ -51,7 +51,7 @@ void main() {
 
     test('toggleMicMute', () {
       expect(session.micMuted, false);
-      
+
       session.toggleMicMute();
       expect(session.micMuted, true);
 
@@ -61,7 +61,7 @@ void main() {
 
     test('toggleSpeakerMute', () {
       expect(session.speakerMuted, false);
-      
+
       session.toggleSpeakerMute();
       expect(session.speakerMuted, true);
 

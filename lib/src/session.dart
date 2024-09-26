@@ -201,7 +201,7 @@ class UltravoxSession {
       await _handleSocketMessage(event);
     });
   }
-  
+
   /// Toggles the mute status of the user's microphone.
   void toggleMicMute() => micMuted = !micMuted;
 
