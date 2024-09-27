@@ -133,7 +133,7 @@ class UltravoxSession {
   /// A [ValueNotifier] that emits events when the user is muted or unmuted.
   final ValueNotifier<bool> micMutedNotifier = ValueNotifier<bool>(false);
 
-  /// A [ValueNotifier] that emits events when the "speaker" (the agent) is muted or unmuted.
+  /// A [ValueNotifier] that emits events when the user's speaker (i.e. output audio from the agent) is muted or unmuted.
   final ValueNotifier<bool> speakerMutedNotifier = ValueNotifier<bool>(false);
 
   /// The mute status of the user's microphone.
