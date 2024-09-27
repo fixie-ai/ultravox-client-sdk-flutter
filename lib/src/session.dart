@@ -205,7 +205,7 @@ class UltravoxSession {
   /// Toggles the mute status of the user's microphone.
   void toggleMicMute() => micMuted = !micMuted;
 
-  /// Toggles the mute status of the user's "speaker" (the agent's audio output).
+  /// Toggles the mute status of the user's speaker (i.e. output audio from the agent).
   void toggleSpeakerMute() => speakerMuted = !speakerMuted;
 
   /// Leaves the current call (if any).
