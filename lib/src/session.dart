@@ -149,7 +149,7 @@ class UltravoxSession {
     }
   }
 
-  /// The mute status for the user's "speaker" (the agent's audio output).
+  /// The mute status for the user's speaker (i.e. output audio from the agent).
   ///
   /// Listen to [speakerMutedNotifier] to receive updates.
   bool get speakerMuted => speakerMutedNotifier.value;
