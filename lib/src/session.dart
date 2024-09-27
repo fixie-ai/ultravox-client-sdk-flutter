@@ -154,7 +154,7 @@ class UltravoxSession {
   /// Listen to [speakerMutedNotifier] to receive updates.
   bool get speakerMuted => speakerMutedNotifier.value;
 
-  /// Sets the mute status of the user's "speaker" (the agent's audio output).
+  /// Sets the mute status of the user's speaker (i.e. output audio from the agent).
   set speakerMuted(bool muted) {
     if (muted != speakerMutedNotifier.value) {
       for (final participant in _room.remoteParticipants.values) {
