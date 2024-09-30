@@ -173,39 +173,31 @@ class _MyHomePageState extends State<MyHomePage> {
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
           ListenableBuilder(
-              listenable: _session!.userMutedNotifier,
+              listenable: _session!.micMutedNotifier,
               builder: (BuildContext context, Widget? child) {
                 return ElevatedButton.icon(
-                  icon: _session!.userMuted
+                  icon: _session!.micMuted
                       ? const Icon(Icons.mic_off)
                       : const Icon(Icons.mic),
                   onPressed: () {
-                    if (_session!.userMuted) {
-                      _session!.unmute({Role.user});
-                    } else {
-                      _session!.mute({Role.user});
-                    }
+                    _session!.micMuted = !_session!.micMuted;
                   },
-                  label: _session!.userMuted
+                  label: _session!.micMuted
                       ? const Text('Unmute')
                       : const Text('Mute'),
                 );
               }),
           ListenableBuilder(
-              listenable: _session!.agentMutedNotifier,
+              listenable: _session!.speakerMutedNotifier,
               builder: (BuildContext context, Widget? child) {
                 return ElevatedButton.icon(
-                  icon: _session!.agentMuted
+                  icon: _session!.speakerMuted
                       ? const Icon(Icons.volume_off)
                       : const Icon(Icons.volume_up),
                   onPressed: () {
-                    if (_session!.agentMuted) {
-                      _session!.unmute({Role.agent});
-                    } else {
-                      _session!.mute({Role.agent});
-                    }
+                    _session!.speakerMuted = !_session!.speakerMuted;
                   },
-                  label: _session!.agentMuted
+                  label: _session!.speakerMuted
                       ? const Text('Unmute Agent')
                       : const Text('Mute Agent'),
                 );

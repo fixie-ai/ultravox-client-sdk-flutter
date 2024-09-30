@@ -130,21 +130,51 @@ class UltravoxSession {
   Map<String, dynamic> get lastExperimentalMessage =>
       experimentalMessageNotifier.value;
 
-  /// A [ValueNotifier] that emits events when the user is muted or unmuted.
-  final userMutedNotifier = ValueNotifier<bool>(false);
+  /// A [ValueNotifier] that emits events when the user's mic is muted or unmuted.
+  final micMutedNotifier = ValueNotifier<bool>(false);
 
-  /// A quick accessor for the user's current mute status.
+  /// A [ValueNotifier] that emits events when the user's speaker (i.e. output audio from the agent) is muted or unmuted.
+  final speakerMutedNotifier = ValueNotifier<bool>(false);
+
+  /// The mute status of the user's microphone.
   ///
-  /// Listen to [userMutedNotifier] to receive updates.
-  bool get userMuted => userMutedNotifier.value;
+  /// Listen to [micMutedNotifier] to receive updates.
+  bool get micMuted => micMutedNotifier.value;
 
-  /// A [ValueNotifier] that emits events when the agent is muted or unmuted.
-  final agentMutedNotifier = ValueNotifier<bool>(false);
+  /// Sets the mute status of the user's microphone.
+  set micMuted(bool muted) {
+    if (muted != micMutedNotifier.value) {
+      _room.localParticipant?.setMicrophoneEnabled(!muted);
+      micMutedNotifier.value = muted;
+    }
+  }
 
-  /// A quick accessor for the agent's current mute status.
+  /// Toggles the mute status of the user's microphone.
+  void toggleMicMuted() => micMuted = !micMuted;
+
+  /// The mute status for the user's speaker (i.e. output audio from the agent).
   ///
-  /// Listen to [agentMutedNotifier] to receive updates.
-  bool get agentMuted => agentMutedNotifier.value;
+  /// Listen to [speakerMutedNotifier] to receive updates.
+  bool get speakerMuted => speakerMutedNotifier.value;
+
+  /// Sets the mute status of the user's speaker (i.e. output audio from the agent).
+  set speakerMuted(bool muted) {
+    if (muted != speakerMutedNotifier.value) {
+      for (final participant in _room.remoteParticipants.values) {
+        for (final publication in participant.audioTrackPublications) {
+          if (muted) {
+            publication.track?.disable();
+          } else {
+            publication.track?.enable();
+          }
+        }
+      }
+      speakerMutedNotifier.value = muted;
+    }
+  }
+
+  /// Toggles the mute status of the user's speaker (i.e. output audio from the agent).
+  void toggleSpeakerMuted() => speakerMuted = !speakerMuted;
 
   final Set<String> _experimentalMessages;
   final lk.Room _room;
@@ -176,52 +206,6 @@ class UltravoxSession {
     _wsChannel.stream.listen((event) async {
       await _handleSocketMessage(event);
     });
-  }
-
-  /// Mutes the user, the agent, or both.
-  ///
-  /// If a given [Role] is already muted, this method does nothing for that
-  /// role.
-  void mute(Set<Role> roles) {
-    if (roles.contains(Role.user)) {
-      if (!userMuted) {
-        _room.localParticipant?.setMicrophoneEnabled(false);
-      }
-      userMutedNotifier.value = true;
-    }
-    if (roles.contains(Role.agent)) {
-      if (!agentMuted) {
-        for (final participant in _room.remoteParticipants.values) {
-          for (final publication in participant.audioTrackPublications) {
-            publication.track?.disable();
-          }
-        }
-      }
-      agentMutedNotifier.value = true;
-    }
-  }
-
-  /// Unmutes the user, the agent, or both.
-  ///
-  /// If a given [Role] is not currently muted, this method does nothing for
-  /// that role.
-  void unmute(Set<Role> roles) {
-    if (roles.contains(Role.user)) {
-      if (userMuted) {
-        _room.localParticipant?.setMicrophoneEnabled(true);
-      }
-      userMutedNotifier.value = false;
-    }
-    if (roles.contains(Role.agent)) {
-      if (agentMuted) {
-        for (final participant in _room.remoteParticipants.values) {
-          for (final publication in participant.audioTrackPublications) {
-            publication.track?.enable();
-          }
-        }
-      }
-      agentMutedNotifier.value = false;
-    }
   }
 
   /// Leaves the current call (if any).

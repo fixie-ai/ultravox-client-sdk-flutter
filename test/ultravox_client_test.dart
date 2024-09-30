@@ -1,25 +1,52 @@
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:ultravox_client/ultravox_client.dart';
 
 void main() {
-  test('mute', () {
-    final session = UltravoxSession.create();
-    int muteCounter = 0;
-    session.userMutedNotifier.addListener(() {
-      muteCounter++;
+  group('UltravoxSession mute tests', () {
+    late UltravoxSession session;
+
+    setUp(() {
+      session = UltravoxSession.create();
     });
-    session.mute({Role.user});
-    expect(muteCounter, 1);
-    session.mute({Role.user});
-    expect(muteCounter, 1);
-    session.unmute({Role.user});
-    expect(muteCounter, 2);
-    session.mute({Role.user, Role.agent});
-    expect(muteCounter, 3);
-    session.unmute({});
-    expect(muteCounter, 3);
-    session.unmute({Role.agent});
-    expect(muteCounter, 3);
+
+    test('micMuted getter and setter', () {
+      int micMuteCounter = 0;
+      session.micMutedNotifier.addListener(() {
+        micMuteCounter++;
+      });
+
+      expect(session.micMuted, false);
+
+      session.micMuted = true;
+      expect(session.micMuted, true);
+      expect(micMuteCounter, 1);
+
+      session.micMuted = true; // Should not trigger listener
+      expect(micMuteCounter, 1);
+
+      session.micMuted = false;
+      expect(session.micMuted, false);
+      expect(micMuteCounter, 2);
+    });
+
+    test('speakerMuted getter and setter', () {
+      int speakerMuteCounter = 0;
+      session.speakerMutedNotifier.addListener(() {
+        speakerMuteCounter++;
+      });
+
+      expect(session.speakerMuted, false);
+
+      session.speakerMuted = true;
+      expect(session.speakerMuted, true);
+      expect(speakerMuteCounter, 1);
+
+      session.speakerMuted = true; // Should not trigger listener
+      expect(speakerMuteCounter, 1);
+
+      session.speakerMuted = false;
+      expect(session.speakerMuted, false);
+      expect(speakerMuteCounter, 2);
+    });
   });
 }
