@@ -130,11 +130,11 @@ class UltravoxSession {
   Map<String, dynamic> get lastExperimentalMessage =>
       experimentalMessageNotifier.value;
 
-  /// A [ValueNotifier] that emits events when the user is muted or unmuted.
-  final ValueNotifier<bool> micMutedNotifier = ValueNotifier<bool>(false);
+  /// A [ValueNotifier] that emits events when the user's mic is muted or unmuted.
+  final micMutedNotifier = ValueNotifier<bool>(false);
 
-  /// A [ValueNotifier] that emits events when the "speaker" (the agent) is muted or unmuted.
-  final ValueNotifier<bool> speakerMutedNotifier = ValueNotifier<bool>(false);
+  /// A [ValueNotifier] that emits events when the user's speaker (i.e. output audio from the agent) is muted or unmuted.
+  final speakerMutedNotifier = ValueNotifier<bool>(false);
 
   /// The mute status of the user's microphone.
   ///
@@ -149,12 +149,15 @@ class UltravoxSession {
     }
   }
 
-  /// The mute status for the user's "speaker" (the agent's audio output).
+  /// Toggles the mute status of the user's microphone.
+  void toggleMicMuted() => micMuted = !micMuted;
+
+  /// The mute status for the user's speaker (i.e. output audio from the agent).
   ///
   /// Listen to [speakerMutedNotifier] to receive updates.
   bool get speakerMuted => speakerMutedNotifier.value;
 
-  /// Sets the mute status of the user's "speaker" (the agent's audio output).
+  /// Sets the mute status of the user's speaker (i.e. output audio from the agent).
   set speakerMuted(bool muted) {
     if (muted != speakerMutedNotifier.value) {
       for (final participant in _room.remoteParticipants.values) {
@@ -169,6 +172,9 @@ class UltravoxSession {
       speakerMutedNotifier.value = muted;
     }
   }
+
+  /// Toggles the mute status of the user's speaker (i.e. output audio from the agent).
+  void toggleSpeakerMuted() => speakerMuted = !speakerMuted;
 
   final Set<String> _experimentalMessages;
   final lk.Room _room;
@@ -201,12 +207,6 @@ class UltravoxSession {
       await _handleSocketMessage(event);
     });
   }
-
-  /// Toggles the mute status of the user's microphone.
-  void toggleMicMute() => micMuted = !micMuted;
-
-  /// Toggles the mute status of the user's "speaker" (the agent's audio output).
-  void toggleSpeakerMute() => speakerMuted = !speakerMuted;
 
   /// Leaves the current call (if any).
   Future<void> leaveCall() async {

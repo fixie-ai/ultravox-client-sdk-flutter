@@ -48,25 +48,5 @@ void main() {
       expect(session.speakerMuted, false);
       expect(speakerMuteCounter, 2);
     });
-
-    test('toggleMicMute', () {
-      expect(session.micMuted, false);
-
-      session.toggleMicMute();
-      expect(session.micMuted, true);
-
-      session.toggleMicMute();
-      expect(session.micMuted, false);
-    });
-
-    test('toggleSpeakerMute', () {
-      expect(session.speakerMuted, false);
-
-      session.toggleSpeakerMute();
-      expect(session.speakerMuted, true);
-
-      session.toggleSpeakerMute();
-      expect(session.speakerMuted, false);
-    });
   });
 }

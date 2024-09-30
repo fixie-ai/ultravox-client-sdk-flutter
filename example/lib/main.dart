@@ -180,11 +180,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       ? const Icon(Icons.mic_off)
                       : const Icon(Icons.mic),
                   onPressed: () {
-                    if (_session!.micMuted) {
-                      _session!.micMuted = false;
-                    } else {
-                      _session!.micMuted = true;
-                    }
+                    _session!.micMuted = !_session!.micMuted;
                   },
                   label: _session!.micMuted
                       ? const Text('Unmute')
@@ -199,11 +195,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       ? const Icon(Icons.volume_off)
                       : const Icon(Icons.volume_up),
                   onPressed: () {
-                    if (_session!.speakerMuted) {
-                      _session!.speakerMuted = false;
-                    } else {
-                      _session!.speakerMuted = true;
-                    }
+                    _session!.speakerMuted = !_session!.speakerMuted;
                   },
                   label: _session!.speakerMuted
                       ? const Text('Unmute Agent')
