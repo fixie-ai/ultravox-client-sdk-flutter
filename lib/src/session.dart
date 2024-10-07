@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -91,6 +93,34 @@ class Transcripts extends ChangeNotifier {
   }
 }
 
+/// The result type returned by a ClientToolImplementation.
+class ClientToolResult {
+  /// The result of the client tool.
+  ///
+  /// This is exactly the string that will be seen by the model. Often JSON.
+  final String result;
+
+  /// The type of response the tool is providing.
+  ///
+  /// Most tools simply provide information back to the model, in which case
+  /// responseType need not be set. For other tools that are instead interpreted
+  /// by the server to affect the call, responseType may be set to indicate how
+  /// the call should be altered. In this case, [result] should be JSON with
+  /// instructions for the server. The schema depends on the response type.
+  /// See https://docs.ultravox.ai/tools for more information.
+  final String? responseType;
+
+  ClientToolResult(this.result, {this.responseType});
+}
+
+/// A function that fulfills a client-implemented tool.
+///
+/// The function should take an object containing the tool's parameters (parsed
+/// from JSON) and return a [ClientToolResult] object. It may or may not be
+/// asynchronous.
+typedef ClientToolImplementation = FutureOr<ClientToolResult> Function(
+    Object data);
+
 /// Manages a single session with Ultravox.
 ///
 /// In addition to providing methods to manage a call, [UltravoxSession] exposes
@@ -180,12 +210,28 @@ class UltravoxSession {
   final lk.Room _room;
   final lk.EventsListener<lk.RoomEvent> _listener;
   late WebSocketChannel _wsChannel;
+  final _registeredTools = <String, ClientToolImplementation>{};
 
   UltravoxSession(this._room, this._experimentalMessages)
       : _listener = _room.createListener();
 
   UltravoxSession.create({Set<String>? experimentalMessages})
       : this(lk.Room(), experimentalMessages ?? {});
+
+  /// Registers a client tool implementation using the given name.
+  ///
+  /// If the call is started with a client-implemented tool, this implementation
+  /// will be invoked when the model calls the tool.
+  /// See https://docs.ultravox.ai/tools for more information.
+  void registerToolImplementation(String name, ClientToolImplementation impl) {
+    _registeredTools[name] = impl;
+  }
+
+  /// Convenience batch wrapper for [registerToolImplementation].
+  void registerToolImplementations(
+      Map<String, ClientToolImplementation> implementations) {
+    implementations.forEach(registerToolImplementation);
+  }
 
   /// Connects to a call using the given [joinUrl].
   Future<void> joinCall(String joinUrl) async {
@@ -204,7 +250,7 @@ class UltravoxSession {
     _wsChannel = WebSocketChannel.connect(url);
     await _wsChannel.ready;
     _wsChannel.stream.listen((event) async {
-      await _handleSocketMessage(event);
+      await handleSocketMessage(event);
     });
   }
 
@@ -219,8 +265,7 @@ class UltravoxSession {
       throw Exception(
           'Cannot send text while not connected. Current status: $status');
     }
-    final message = jsonEncode({'type': 'input_text_message', 'text': text});
-    _room.localParticipant?.publishData(utf8.encode(message), reliable: true);
+    await _sendData({'type': 'input_text_message', 'text': text});
   }
 
   Future<void> _disconnect() async {
@@ -235,7 +280,8 @@ class UltravoxSession {
     statusNotifier.value = UltravoxSessionStatus.disconnected;
   }
 
-  Future<void> _handleSocketMessage(dynamic event) async {
+  @visibleForTesting
+  Future<void> handleSocketMessage(dynamic event) async {
     if (event is! String) {
       throw Exception('Received unexpected message from socket');
     }
@@ -259,7 +305,7 @@ class UltravoxSession {
     await _room.startAudio();
   }
 
-  void _handleDataMessage(lk.DataReceivedEvent event) {
+  Future<void> _handleDataMessage(lk.DataReceivedEvent event) async {
     final data = jsonDecode(utf8.decode(event.data));
     switch (data['type']) {
       case 'state':
@@ -315,10 +361,53 @@ class UltravoxSession {
           }
         }
         break;
+      case 'client_tool_invocation':
+        await _invokeClientTool(data['toolName'] as String,
+            data['invocationId'] as String, data['parameters'] as Object);
       default:
         if (_experimentalMessages.isNotEmpty) {
           experimentalMessageNotifier.value = data as Map<String, dynamic>;
         }
     }
+  }
+
+  Future<void> _invokeClientTool(
+      String toolName, String invocationId, Object parameters) async {
+    final tool = _registeredTools[toolName];
+    if (tool == null) {
+      await _sendData({
+        'type': 'client_tool_result',
+        'invocationId': invocationId,
+        'errorType': 'undefined',
+        'errorMessage':
+            'Client tool $toolName is not registered (Flutter client)',
+      });
+      return;
+    }
+    try {
+      final result = await tool(parameters);
+      final data = {
+        'type': 'client_tool_result',
+        'invocationId': invocationId,
+        'result': result.result,
+      };
+      if (result.responseType != null) {
+        data['responseType'] = result.responseType!;
+      }
+      await _sendData(data);
+    } catch (e) {
+      await _sendData({
+        'type': 'client_tool_result',
+        'invocationId': invocationId,
+        'errorType': 'implementation-error',
+        'errorMessage': e.toString(),
+      });
+    }
+  }
+
+  Future<void> _sendData(Object data) async {
+    final message = jsonEncode(data);
+    await _room.localParticipant
+        ?.publishData(utf8.encode(message), reliable: true);
   }
 }

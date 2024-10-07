@@ -44,3 +44,6 @@ migrate_working_dir/
 *.iws
 .idea/
 .vscode/
+
+# Generated mocks
+test/**/*.mocks.dart
