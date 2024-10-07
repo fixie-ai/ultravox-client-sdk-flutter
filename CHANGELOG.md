@@ -16,3 +16,7 @@
 
 * Changed implementation of mute/unmute. It's now `micMuted` and `speakerMuted`
 * Added functions for toggling mute of mic (`toggleMicMuted()`) and speaker (`toggleSpeakerMuted()`)
+
+## 0.0.5
+
+* Add client-implemented tools
