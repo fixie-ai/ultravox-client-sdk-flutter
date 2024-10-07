@@ -1,6 +1,6 @@
 name: ultravox_client
 description: "Flutter client SDK for Ultravox."
-version: 0.0.4
+version: 0.0.5
 homepage: https://ultravox.ai
 repository: https://github.com/fixie-ai/ultravox-client-sdk-flutter
 topics:
@@ -30,4 +30,6 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.13
 
