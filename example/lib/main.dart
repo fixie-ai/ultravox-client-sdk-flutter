@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:ultravox_client/ultravox_client.dart';
@@ -70,7 +71,24 @@ class _MyHomePageState extends State<MyHomePage> {
           UltravoxSession.create(experimentalMessages: _debug ? {"debug"} : {});
     });
     _session!.statusNotifier.addListener(_onStatusChange);
+    _session!.registerToolImplementation("getSecretMenu", _getSecretMenu);
     await _session!.joinCall(joinUrl);
+  }
+
+  ClientToolResult _getSecretMenu(Object params) {
+    return ClientToolResult(json.encode({
+      "date": DateTime.now().toIso8601String(),
+      "specialItems": [
+        {
+          "name": "Banana smoothie",
+          "price": 3.99,
+        },
+        {
+          "name": "Butter pecan ice cream (one scoop)",
+          "price": 1.99,
+        }
+      ],
+    }));
   }
 
   Future<void> _endCall() async {
