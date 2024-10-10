@@ -20,3 +20,7 @@
 ## 0.0.5
 
 * Add client-implemented tools
+
+# 0.0.6
+
+* Add ability to set the output medium.

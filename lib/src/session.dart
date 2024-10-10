@@ -259,7 +259,19 @@ class UltravoxSession {
     _disconnect();
   }
 
-  /// Sends a message via text. The agent will also respond via text.
+  /// Sets the agent's output medium.
+  ///
+  /// If the agent is currently speaking, this will take effect at the end of
+  /// the agent's utterance. Also see [speakerMuted].
+  Future<void> setOutputMedium(Medium medium) async {
+    if (!status.live) {
+      throw Exception(
+          'Cannot set speaker medium while not connected. Current status: $status');
+    }
+    await _sendData({'type': 'set_output_medium', 'medium': medium.name});
+  }
+
+  /// Sends a message via text.
   Future<void> sendText(String text) async {
     if (!status.live) {
       throw Exception(
