@@ -5,6 +5,8 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 
+const ultravoxSdkVersion = '0.0.7';
+
 /// The current status of an [UltravoxSession].
 enum UltravoxSessionStatus {
   /// The voice session is not connected and not attempting to connect.
@@ -234,19 +236,24 @@ class UltravoxSession {
   }
 
   /// Connects to a call using the given [joinUrl].
-  Future<void> joinCall(String joinUrl) async {
+  Future<void> joinCall(String joinUrl, {String? clientVersion}) async {
     if (status != UltravoxSessionStatus.disconnected) {
       throw Exception('Cannot join a new call while already in a call');
     }
     statusNotifier.value = UltravoxSessionStatus.connecting;
     var url = Uri.parse(joinUrl);
-    if (_experimentalMessages.isNotEmpty) {
-      final queryParameters = Map<String, String>.from(url.queryParameters)
-        ..addAll({
-          'experimentalMessages': _experimentalMessages.join(','),
-        });
-      url = url.replace(queryParameters: queryParameters);
+    final queryParams = Map<String, String>.from(url.queryParameters);
+    var uvClientVersion = "flutter_$ultravoxSdkVersion(0.0.2)";
+    if (clientVersion != null) {
+      uvClientVersion += ":$clientVersion";
     }
+    queryParams.addAll({'clientVersion': uvClientVersion});
+    if (_experimentalMessages.isNotEmpty) {
+      queryParams.addAll({
+        'experimentalMessages': _experimentalMessages.join(','),
+      });
+    }
+    url = url.replace(queryParameters: queryParams);
     _wsChannel = WebSocketChannel.connect(url);
     await _wsChannel.ready;
     _wsChannel.stream.listen((event) async {
@@ -268,7 +275,7 @@ class UltravoxSession {
       throw Exception(
           'Cannot set speaker medium while not connected. Current status: $status');
     }
-    await _sendData({'type': 'set_output_medium', 'medium': medium.name});
+    await sendData({'type': 'set_output_medium', 'medium': medium.name});
   }
 
   /// Sends a message via text.
@@ -277,7 +284,7 @@ class UltravoxSession {
       throw Exception(
           'Cannot send text while not connected. Current status: $status');
     }
-    await _sendData({'type': 'input_text_message', 'text': text});
+    await sendData({'type': 'input_text_message', 'text': text});
   }
 
   Future<void> _disconnect() async {
@@ -336,37 +343,23 @@ class UltravoxSession {
         }
         break;
       case 'transcript':
-        final medium = data['transcript']['medium'] == 'voice'
-            ? Medium.voice
-            : Medium.text;
-        final transcript = Transcript(
-          text: data['transcript']['text'] as String,
-          isFinal: data['transcript']['final'] as bool,
-          speaker: Role.user,
-          medium: medium,
-        );
-        transcriptsNotifier._addOrUpdateTranscript(transcript);
-        break;
-      case 'voice_synced_transcript':
-      case 'agent_text_transcript':
-        final medium = data['type'] == 'voice_synced_transcript'
-            ? Medium.voice
-            : Medium.text;
+        final medium = data['medium'] == 'voice' ? Medium.voice : Medium.text;
+        final role = data['role'] == 'agent' ? Role.agent : Role.user;
         if (data['text'] != null) {
           final transcript = Transcript(
             text: data['text'] as String,
             isFinal: data['final'] as bool,
-            speaker: Role.agent,
+            speaker: role,
             medium: medium,
           );
           transcriptsNotifier._addOrUpdateTranscript(transcript);
         } else if (data['delta'] != null) {
           final last = transcriptsNotifier._transcripts.lastOrNull;
-          if (last?.speaker == Role.agent) {
+          if (last?.speaker == role) {
             final transcript = Transcript(
               text: last!.text + (data['delta'] as String),
               isFinal: data['final'] as bool,
-              speaker: Role.agent,
+              speaker: role,
               medium: medium,
             );
             transcriptsNotifier._addOrUpdateTranscript(transcript);
@@ -387,7 +380,7 @@ class UltravoxSession {
       String toolName, String invocationId, Object parameters) async {
     final tool = _registeredTools[toolName];
     if (tool == null) {
-      await _sendData({
+      await sendData({
         'type': 'client_tool_result',
         'invocationId': invocationId,
         'errorType': 'undefined',
@@ -406,9 +399,9 @@ class UltravoxSession {
       if (result.responseType != null) {
         data['responseType'] = result.responseType!;
       }
-      await _sendData(data);
+      await sendData(data);
     } catch (e) {
-      await _sendData({
+      await sendData({
         'type': 'client_tool_result',
         'invocationId': invocationId,
         'errorType': 'implementation-error',
@@ -417,7 +410,10 @@ class UltravoxSession {
     }
   }
 
-  Future<void> _sendData(Object data) async {
+  Future<void> sendData(Map<String, Object> data) async {
+    if (!data.containsKey("type")) {
+      throw Exception("Data must contain a 'type' key");
+    }
     final message = jsonEncode(data);
     await _room.localParticipant
         ?.publishData(utf8.encode(message), reliable: true);
