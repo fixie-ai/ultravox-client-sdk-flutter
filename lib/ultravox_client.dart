@@ -1,3 +1,3 @@
-library ultravox_client;
+library;
 
 export 'src/session.dart';
