@@ -72,7 +72,7 @@ class _MyHomePageState extends State<MyHomePage> {
     });
     _session!.statusNotifier.addListener(_onStatusChange);
     _session!.registerToolImplementation("getSecretMenu", _getSecretMenu);
-    await _session!.joinCall(joinUrl);
+    await _session!.joinCall(joinUrl, clientVersion: "UltravoxExampleApp");
   }
 
   ClientToolResult _getSecretMenu(Object params) {
