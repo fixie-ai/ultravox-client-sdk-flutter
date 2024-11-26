@@ -24,3 +24,10 @@
 # 0.0.6
 
 * Add ability to set the output medium.
+
+# 0.0.7
+
+* Start informing the server of the client version and API version.
+* Use simplifed `transcript` messages.
+* Expose `sendData` and `dataMessageNotifier` for bleeding edge use cases.
+* Update dependencies.

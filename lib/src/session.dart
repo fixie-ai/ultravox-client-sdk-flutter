@@ -5,6 +5,8 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 
+const ultravoxSdkVersion = '0.0.7';
+
 /// The current status of an [UltravoxSession].
 enum UltravoxSessionStatus {
   /// The voice session is not connected and not attempting to connect.
@@ -76,18 +78,32 @@ class Transcript {
 /// [Transcripts] is a [ChangeNotifier] that notifies listeners when
 /// transcripts are updated or new transcripts are added.
 class Transcripts extends ChangeNotifier {
-  final _transcripts = <Transcript>[];
+  final _transcripts = <Transcript?>[];
 
-  List<Transcript> get transcripts => List.unmodifiable(_transcripts);
+  List<Transcript> get transcripts =>
+      List.unmodifiable(_transcripts.whereType<Transcript>());
 
-  void _addOrUpdateTranscript(Transcript transcript) {
-    if (_transcripts.isNotEmpty &&
-        !_transcripts.last.isFinal &&
-        _transcripts.last.speaker == transcript.speaker) {
-      _transcripts.replaceRange(
-          _transcripts.length - 1, _transcripts.length, [transcript]);
+  void _addOrUpdateTranscript(
+      int ordinal, Medium medium, Role speaker, bool isFinal,
+      {String? text, String? delta}) {
+    while (_transcripts.length < ordinal) {
+      _transcripts.add(null);
+    }
+    if (_transcripts.length == ordinal) {
+      _transcripts.add(Transcript(
+        text: text ?? delta ?? '',
+        isFinal: isFinal,
+        speaker: speaker,
+        medium: medium,
+      ));
     } else {
-      _transcripts.add(transcript);
+      final priorText = _transcripts[ordinal]?.text ?? '';
+      _transcripts[ordinal] = Transcript(
+        text: text ?? priorText + (delta ?? ''),
+        isFinal: isFinal,
+        speaker: speaker,
+        medium: medium,
+      );
     }
     notifyListeners();
   }
@@ -159,6 +175,17 @@ class UltravoxSession {
   /// Listen to [experimentalMessageNotifier] to receive updates.
   Map<String, dynamic> get lastExperimentalMessage =>
       experimentalMessageNotifier.value;
+
+  /// A [ValueNotifier] that emits events when any new data messages are
+  /// received, including those typically handled by this SDK.
+  ///
+  /// See https://docs.ultravox.ai/datamessages for message types.
+  final dataMessageNotifier = ValueNotifier<Map<String, dynamic>>({});
+
+  /// A quick accessor for the last data message received.
+  ///
+  /// Listen to [dataMessageNotifier] to receive updates.
+  Map<String, dynamic> get lastDataMessage => dataMessageNotifier.value;
 
   /// A [ValueNotifier] that emits events when the user's mic is muted or unmuted.
   final micMutedNotifier = ValueNotifier<bool>(false);
@@ -234,19 +261,24 @@ class UltravoxSession {
   }
 
   /// Connects to a call using the given [joinUrl].
-  Future<void> joinCall(String joinUrl) async {
+  Future<void> joinCall(String joinUrl, {String? clientVersion}) async {
     if (status != UltravoxSessionStatus.disconnected) {
       throw Exception('Cannot join a new call while already in a call');
     }
     statusNotifier.value = UltravoxSessionStatus.connecting;
     var url = Uri.parse(joinUrl);
-    if (_experimentalMessages.isNotEmpty) {
-      final queryParameters = Map<String, String>.from(url.queryParameters)
-        ..addAll({
-          'experimentalMessages': _experimentalMessages.join(','),
-        });
-      url = url.replace(queryParameters: queryParameters);
+    final queryParams = Map<String, String>.from(url.queryParameters);
+    var uvClientVersion = "flutter_$ultravoxSdkVersion";
+    if (clientVersion != null) {
+      uvClientVersion += ":$clientVersion";
     }
+    queryParams.addAll({'clientVersion': uvClientVersion, 'apiVersion': '1'});
+    if (_experimentalMessages.isNotEmpty) {
+      queryParams.addAll({
+        'experimentalMessages': _experimentalMessages.join(','),
+      });
+    }
+    url = url.replace(queryParameters: queryParams);
     _wsChannel = WebSocketChannel.connect(url);
     await _wsChannel.ready;
     _wsChannel.stream.listen((event) async {
@@ -268,7 +300,7 @@ class UltravoxSession {
       throw Exception(
           'Cannot set speaker medium while not connected. Current status: $status');
     }
-    await _sendData({'type': 'set_output_medium', 'medium': medium.name});
+    await sendData({'type': 'set_output_medium', 'medium': medium.name});
   }
 
   /// Sends a message via text.
@@ -277,7 +309,19 @@ class UltravoxSession {
       throw Exception(
           'Cannot send text while not connected. Current status: $status');
     }
-    await _sendData({'type': 'input_text_message', 'text': text});
+    await sendData({'type': 'input_text_message', 'text': text});
+  }
+
+  /// Sends an arbitrary data message to the server.
+  ///
+  /// See https://docs.ultravox.ai/datamessages for message types.
+  Future<void> sendData(Map<String, Object> data) async {
+    if (!data.containsKey("type")) {
+      throw Exception("Data must contain a 'type' key");
+    }
+    final message = jsonEncode(data);
+    await _room.localParticipant
+        ?.publishData(utf8.encode(message), reliable: true);
   }
 
   Future<void> _disconnect() async {
@@ -318,7 +362,8 @@ class UltravoxSession {
   }
 
   Future<void> _handleDataMessage(lk.DataReceivedEvent event) async {
-    final data = jsonDecode(utf8.decode(event.data));
+    final data = jsonDecode(utf8.decode(event.data)) as Map<String, dynamic>;
+    dataMessageNotifier.value = data;
     switch (data['type']) {
       case 'state':
         switch (data['state']) {
@@ -336,41 +381,18 @@ class UltravoxSession {
         }
         break;
       case 'transcript':
-        final medium = data['transcript']['medium'] == 'voice'
-            ? Medium.voice
-            : Medium.text;
-        final transcript = Transcript(
-          text: data['transcript']['text'] as String,
-          isFinal: data['transcript']['final'] as bool,
-          speaker: Role.user,
-          medium: medium,
-        );
-        transcriptsNotifier._addOrUpdateTranscript(transcript);
-        break;
-      case 'voice_synced_transcript':
-      case 'agent_text_transcript':
-        final medium = data['type'] == 'voice_synced_transcript'
-            ? Medium.voice
-            : Medium.text;
+        final medium = data['medium'] == 'voice' ? Medium.voice : Medium.text;
+        final role = data['role'] == 'agent' ? Role.agent : Role.user;
+        final ordinal = data['ordinal'] as int;
+        final isFinal = data['final'] as bool? ?? false;
         if (data['text'] != null) {
-          final transcript = Transcript(
-            text: data['text'] as String,
-            isFinal: data['final'] as bool,
-            speaker: Role.agent,
-            medium: medium,
-          );
-          transcriptsNotifier._addOrUpdateTranscript(transcript);
+          transcriptsNotifier._addOrUpdateTranscript(
+              ordinal, medium, role, isFinal,
+              text: data['text'] as String);
         } else if (data['delta'] != null) {
-          final last = transcriptsNotifier._transcripts.lastOrNull;
-          if (last?.speaker == Role.agent) {
-            final transcript = Transcript(
-              text: last!.text + (data['delta'] as String),
-              isFinal: data['final'] as bool,
-              speaker: Role.agent,
-              medium: medium,
-            );
-            transcriptsNotifier._addOrUpdateTranscript(transcript);
-          }
+          transcriptsNotifier._addOrUpdateTranscript(
+              ordinal, medium, role, isFinal,
+              delta: data['delta'] as String);
         }
         break;
       case 'client_tool_invocation':
@@ -378,7 +400,7 @@ class UltravoxSession {
             data['invocationId'] as String, data['parameters'] as Object);
       default:
         if (_experimentalMessages.isNotEmpty) {
-          experimentalMessageNotifier.value = data as Map<String, dynamic>;
+          experimentalMessageNotifier.value = data;
         }
     }
   }
@@ -387,7 +409,7 @@ class UltravoxSession {
       String toolName, String invocationId, Object parameters) async {
     final tool = _registeredTools[toolName];
     if (tool == null) {
-      await _sendData({
+      await sendData({
         'type': 'client_tool_result',
         'invocationId': invocationId,
         'errorType': 'undefined',
@@ -406,20 +428,14 @@ class UltravoxSession {
       if (result.responseType != null) {
         data['responseType'] = result.responseType!;
       }
-      await _sendData(data);
+      await sendData(data);
     } catch (e) {
-      await _sendData({
+      await sendData({
         'type': 'client_tool_result',
         'invocationId': invocationId,
         'errorType': 'implementation-error',
         'errorMessage': e.toString(),
       });
     }
-  }
-
-  Future<void> _sendData(Object data) async {
-    final message = jsonEncode(data);
-    await _room.localParticipant
-        ?.publishData(utf8.encode(message), reliable: true);
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -42,12 +43,14 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   UltravoxSession? _session;
   bool _debug = false;
+  final LinkedHashSet<int> _transcriptArrivalOrder = LinkedHashSet<int>();
   bool _connected = false;
 
   @override
   void dispose() {
     if (_session != null) {
       _session!.statusNotifier.removeListener(_onStatusChange);
+      _session!.dataMessageNotifier.removeListener(_onDataMessage);
       unawaited(_session!.leaveCall());
     }
     super.dispose();
@@ -62,6 +65,18 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
+  void _onDataMessage() {
+    final message = _session!.lastDataMessage;
+    if (message["type"] == "transcript" && message.containsKey("ordinal")) {
+      final ordinal = message["ordinal"] as int;
+      if (!_transcriptArrivalOrder.contains(ordinal)) {
+        setState(() {
+          _transcriptArrivalOrder.add(ordinal);
+        });
+      }
+    }
+  }
+
   Future<void> _startCall(String joinUrl) async {
     if (_session != null) {
       return;
@@ -71,8 +86,9 @@ class _MyHomePageState extends State<MyHomePage> {
           UltravoxSession.create(experimentalMessages: _debug ? {"debug"} : {});
     });
     _session!.statusNotifier.addListener(_onStatusChange);
+    _session!.dataMessageNotifier.addListener(_onDataMessage);
     _session!.registerToolImplementation("getSecretMenu", _getSecretMenu);
-    await _session!.joinCall(joinUrl);
+    await _session!.joinCall(joinUrl, clientVersion: "UltravoxExampleApp");
   }
 
   ClientToolResult _getSecretMenu(Object params) {
@@ -92,10 +108,12 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _endCall() async {
+    _transcriptArrivalOrder.clear();
     if (_session == null) {
       return;
     }
     _session!.statusNotifier.removeListener(_onStatusChange);
+    _session!.dataMessageNotifier.removeListener(_onDataMessage);
     await _session!.leaveCall();
     setState(() {
       _session = null;
@@ -244,6 +262,12 @@ class _MyHomePageState extends State<MyHomePage> {
             }
           },
         ));
+
+        mainBodyChildren.add(const SizedBox(height: 10));
+        mainBodyChildren.add(const Text.rich(TextSpan(
+            text: 'Transcript Arrival Order:',
+            style: TextStyle(fontWeight: FontWeight.w700))));
+        mainBodyChildren.add(Text(_transcriptArrivalOrder.join(", ")));
       }
     }
     return Scaffold(
