@@ -27,6 +27,7 @@
 
 # 0.0.7
 
-* Start informing the server of the client version.
+* Start informing the server of the client version and API version.
 * Use simplifed `transcript` messages.
-* Expose `sendData` for bleeding edge use cases.
+* Expose `sendData` and `dataMessageNotifier` for bleeding edge use cases.
+* Update dependencies.
