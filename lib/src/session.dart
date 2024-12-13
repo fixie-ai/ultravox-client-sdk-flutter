@@ -5,7 +5,7 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 
-const ultravoxSdkVersion = '0.0.7';
+const ultravoxSdkVersion = '0.0.8';
 
 /// The current status of an [UltravoxSession].
 enum UltravoxSessionStatus {
@@ -320,8 +320,12 @@ class UltravoxSession {
       throw Exception("Data must contain a 'type' key");
     }
     final message = jsonEncode(data);
-    await _room.localParticipant
-        ?.publishData(utf8.encode(message), reliable: true);
+    final messageBytes = utf8.encode(message);
+    if (messageBytes.length > 1024) {
+      _wsChannel.sink.add(message);
+    } else {
+      await _room.localParticipant?.publishData(messageBytes, reliable: true);
+    }
   }
 
   Future<void> _disconnect() async {
