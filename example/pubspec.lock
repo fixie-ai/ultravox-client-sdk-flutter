@@ -82,12 +82,13 @@ packages:
     source: hosted
     version: "1.0.8"
   dart_webrtc:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: dart_webrtc
-      sha256: c664ad88d5646735753add421ee2118486c100febef5e92b7f59cdbabf6a51f6
-      url: "https://pub.dev"
-    source: hosted
+      path: "."
+      ref: HEAD
+      resolved-ref: e78507fdcc2b46621a389607e16f92fa942befd7
+      url: "https://github.com/flutter-webrtc/dart-webrtc.git"
+    source: git
     version: "1.4.9"
   dbus:
     dependency: transitive
