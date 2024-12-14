@@ -1,6 +1,6 @@
 name: ultravox_client
 description: "Flutter client SDK for Ultravox."
-version: 0.0.7
+version: 0.0.8
 homepage: https://ultravox.ai
 repository: https://github.com/fixie-ai/ultravox-client-sdk-flutter
 topics:
