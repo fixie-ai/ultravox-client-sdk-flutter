@@ -142,6 +142,28 @@ void main() {
         });
       });
 
+      test('setting agent reaction', () async {
+        ClientToolResult impl(Object params) {
+          expect(params, {"foo": "bar"});
+          return ClientToolResult('{"strict": true}',
+              agentReaction: AgentReaction.speaksOnce);
+        }
+
+        await invokeTool(impl);
+
+        final sentData = verify(
+                room.localParticipant.publishData(captureAny, reliable: true))
+            .captured
+            .single;
+        final sentJson = json.decode(utf8.decode(sentData as List<int>));
+        expect(sentJson, {
+          "type": "client_tool_result",
+          "invocationId": "call_1",
+          "result": '{"strict": true}',
+          "agentReaction": "speaks-once"
+        });
+      });
+
       test('error', () async {
         final testError = Exception("test error");
         ClientToolResult impl(Object params) {
