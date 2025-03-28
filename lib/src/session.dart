@@ -5,7 +5,7 @@ import 'package:livekit_client/livekit_client.dart' as lk;
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 
-const ultravoxSdkVersion = '0.0.8';
+const ultravoxSdkVersion = '0.0.9';
 
 /// The current status of an [UltravoxSession].
 enum UltravoxSessionStatus {
@@ -49,6 +49,32 @@ enum Role {
 enum Medium {
   voice,
   text,
+}
+
+/// How the agent should proceed after a tool invocation.
+enum AgentReaction {
+  /// The agent should speak after the tool invocation.
+  ///
+  /// This is the default and is recommended for tools that retrieve information
+  /// for the agent to act on.
+  speaks(val: "speaks"),
+
+  /// The agent should listen after the tool invocation.
+  ///
+  /// This is recommended for tools the user is expected to act on, such as
+  /// certain clear UI changes.
+  listens(val: "listens"),
+
+  /// The agent should speak after the tool invocation if and only if it did not
+  /// speak immediately before the tool invocation.
+  ///
+  /// This is recommended for tools whose primary purpose is a side effect like
+  /// recording information collected from the user.
+  speaksOnce(val: "speaks-once");
+
+  const AgentReaction({required this.val});
+
+  final String val;
 }
 
 /// A transcription of a single utterance.
@@ -126,7 +152,16 @@ class ClientToolResult {
   /// See https://docs.ultravox.ai/tools for more information.
   final String? responseType;
 
-  ClientToolResult(this.result, {this.responseType});
+  /// How the agent should proceed after the tool invocation.
+  final AgentReaction? agentReaction;
+
+  /// The new call state, if it should change.
+  ///
+  /// Call state can be sent to other tools using an automatic parameter.
+  final Map<String, Object>? updateCallState;
+
+  ClientToolResult(this.result,
+      {this.responseType, this.agentReaction, this.updateCallState});
 }
 
 /// A function that fulfills a client-implemented tool.
@@ -304,12 +339,19 @@ class UltravoxSession {
   }
 
   /// Sends a message via text.
-  Future<void> sendText(String text) async {
+  Future<void> sendText(String text, {bool? deferResponse}) async {
     if (!status.live) {
       throw Exception(
           'Cannot send text while not connected. Current status: $status');
     }
-    await sendData({'type': 'input_text_message', 'text': text});
+    final Map<String, Object> data = {
+      'type': 'input_text_message',
+      'text': text
+    };
+    if (deferResponse != null) {
+      data['deferResponse'] = deferResponse;
+    }
+    await sendData(data);
   }
 
   /// Sends an arbitrary data message to the server.
@@ -424,13 +466,19 @@ class UltravoxSession {
     }
     try {
       final result = await tool(parameters);
-      final data = {
+      final Map<String, Object> data = {
         'type': 'client_tool_result',
         'invocationId': invocationId,
         'result': result.result,
       };
       if (result.responseType != null) {
         data['responseType'] = result.responseType!;
+      }
+      if (result.agentReaction != null) {
+        data['agentReaction'] = result.agentReaction!.val;
+      }
+      if (result.updateCallState != null) {
+        data['updateCallState'] = result.updateCallState!;
       }
       await sendData(data);
     } catch (e) {

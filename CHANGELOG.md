@@ -35,3 +35,10 @@
 # 0.0.8
 
 * Send large data messages over our websocket instead of the WebRTC data channel to avoid dropped UDP packets.
+
+# 0.0.9
+
+* Support agentReaction in client tool responses.
+* Support call state in client tool responses.
+* Support deferred responses to user text messages.
+* Update dependencies.
