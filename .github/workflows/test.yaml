@@ -15,10 +15,12 @@ jobs:
           channel: 'stable'
       - name: install deps
         run: flutter pub get
-      - name: generate mocks
-        run: dart run build_runner build
       - name: format
         run: dart format lib/ test/ --set-exit-if-changed
+      - name: generate mocks
+        run: dart run build_runner build
+      - name: format generated
+        run: dart format test/
       - name: check
         run: flutter analyze
       - name: test
